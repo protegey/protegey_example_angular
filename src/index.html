@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ProtegeyExampleAngular</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Demo-only — in a real app, inject these at build time (or from your own backend config
+    // endpoint) instead of hardcoding them into the served HTML. Never bake a real API key into
+    // a public bundle for a key that has write access beyond what end users should trigger.
+    window.__PROTEGEY_API_KEY__ = 'REPLACE_WITH_YOUR_API_KEY';
+    window.__PROTEGEY_BASE_URL__ = 'https://api.protegey.com';
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

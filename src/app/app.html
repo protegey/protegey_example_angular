@@ -1,0 +1,17 @@
+<main style="font-family: sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem;">
+  <h1>Protegey — Angular example</h1>
+  <p>
+    Demonstrates every <code>@protegey/sdk</code> module from an Angular app via an injectable
+    service (<code>ProtegeyService</code>): device intelligence, transaction reporting, behavioral
+    biometrics, and identity verification opened in a new tab.
+  </p>
+
+  <div style="display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap;">
+    <button (click)="identifyDevice()">Identify device again</button>
+    <button (click)="reportTransaction()">Report a test transaction</button>
+    <button (click)="reportBehavioral()">Report a behavioral event</button>
+    <button (click)="startKyc()">Verify my identity</button>
+  </div>
+
+  <pre style="background: #f4f4f4; padding: 1rem; border-radius: 4px; white-space: pre-wrap;">{{ log() }}</pre>
+</main>
