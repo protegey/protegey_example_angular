@@ -1,5 +1,13 @@
 import { Component, signal } from '@angular/core';
+import { ProtegeyApiError } from '@protegey/sdk';
 import { ProtegeyService } from './protegey.service';
+
+function describe(err: unknown): string {
+  // ProtegeyApiError carries the HTTP status and, for account-gating 403s, an errorCode
+  // (PARTNER_SUSPENDED / PARTNER_CONTRACT_REQUIRED).
+  if (err instanceof ProtegeyApiError) return `${err.status}${err.errorCode ? ` ${err.errorCode}` : ''}: ${err.message}`;
+  return (err as Error).message;
+}
 
 // A fresh id per demo run — real integrations pass the end user's own stable id instead.
 const CUSTOMER_ID = `customer-${Math.random().toString(36).slice(2, 8)}`;
@@ -14,6 +22,7 @@ const SESSION_ID = `angular-example-session-${Date.now()}`;
 export class App {
   protected readonly log = signal('Waiting for device.identify()…');
   private visitorId: string | undefined;
+  private kycSessionId: string | undefined;
 
   constructor(private readonly protegey: ProtegeyService) {
     // Typically called once on login/session start — done automatically here so the rest of the
@@ -42,7 +51,9 @@ export class App {
         transactionType: 'test',
         visitorId: this.visitorId,
       });
-      this.log.set(`transactions.report() -> decision=${result.decision}, riskScore=${result.riskScore}`);
+      this.log.set(
+        `transactions.report() -> transactionId=${result.transactionId}, decision=${result.decision}, riskScore=${result.riskScore}, deviceAction=${result.deviceAction}, alerts=${result.alerts.length}`,
+      );
     } catch (err) {
       this.log.set(`transactions.report() failed: ${(err as Error).message}`);
     }
@@ -66,14 +77,77 @@ export class App {
 
   async startKyc(): Promise<void> {
     try {
-      const { url } = await this.protegey.client.kyc.startSession({ externalUserId: CUSTOMER_ID });
+      const { sessionId, url } = await this.protegey.client.kyc.startSession({ externalUserId: CUSTOMER_ID });
+      this.kycSessionId = sessionId;
       // Web stays link-based — open it however fits your UI (a new tab here). There is no in-app
       // webview for the web SDK; that's a mobile-only concept (see @protegey/react-native-sdk /
       // protegey_sdk for Flutter).
       window.open(url, '_blank', 'noopener,noreferrer');
-      this.log.set(`kyc.startSession() -> opened ${url} in a new tab`);
+      this.log.set(`kyc.startSession() -> sessionId=${sessionId}, opened ${url} in a new tab`);
     } catch (err) {
       this.log.set(`kyc.startSession() failed: ${(err as Error).message}`);
+    }
+  }
+
+  async checkKyc(): Promise<void> {
+    if (!this.kycSessionId) {
+      this.log.set('Start a KYC session first.');
+      return;
+    }
+    try {
+      // Polling fallback for the kyc.status_changed webhook.
+      const session = await this.protegey.client.kyc.getSession(this.kycSessionId);
+      this.log.set(`kyc.getSession() -> status=${session.status}, outcome=${session.outcome}`);
+    } catch (err) {
+      this.log.set(`kyc.getSession() failed: ${describe(err)}`);
+    }
+  }
+
+  async listOpenAlerts(): Promise<void> {
+    try {
+      // Pass UPPERCASE filter values (the same casing responses use) — the SDK sends what the API expects.
+      const page = await this.protegey.client.alerts.list({ status: 'OPEN', limit: 5 });
+      const lines = page.data.map(
+        (alert) => `  #${alert.alertNumber} ${alert.ruleCode} (${alert.ruleSeverity}) customer=${alert.externalCustomerId} verdict=${alert.decisionVerdict}`,
+      );
+      this.log.set([`alerts.list({ status: 'OPEN' }) -> total=${page.total}`, ...lines].join('\n'));
+    } catch (err) {
+      this.log.set(`alerts.list() failed: ${describe(err)}`);
+    }
+  }
+
+  async inviteBusiness(): Promise<void> {
+    try {
+      // KYB invite: contactEmail and/or contactPhone (at least one). With a phone only, Protegey
+      // sends no email — deliver applicationUrl yourself (SMS, WhatsApp, ...).
+      const invited = await this.protegey.client.kyb.inviteApplicant({
+        contactName: 'Demo Business Owner',
+        contactPhone: `+2376${Math.floor(10_000_000 + Math.random() * 89_999_999)}`,
+      });
+      this.log.set(`kyb.inviteApplicant() -> id=${invited.id}, status=${invited.status}, applicationUrl=${invited.applicationUrl}`);
+    } catch (err) {
+      this.log.set(`kyb.inviteApplicant() failed: ${describe(err)}`);
+    }
+  }
+
+  async screenName(): Promise<void> {
+    try {
+      const result = await this.protegey.client.sanctions.screen({ name: 'John Doe', type: 'person' });
+      this.log.set(`sanctions.screen() -> decision=${result.decision}, pepMatch=${result.pepMatch}, matches=${result.matches.length}`);
+    } catch (err) {
+      this.log.set(`sanctions.screen() failed: ${describe(err)}`);
+    }
+  }
+
+  async checkSharedSignal(): Promise<void> {
+    try {
+      const result = await this.protegey.client.sharedSignals.check({ deviceFingerprint: this.visitorId, externalCustomerId: CUSTOMER_ID });
+      this.log.set(
+        `sharedSignals.check() -> flagged=${result.flagged}, category=${result.category}, flagConfidence=${result.flagConfidence}, matchCount=${result.matchCount}`,
+      );
+    } catch (err) {
+      // 400 until the shared fraud signal network has been enabled on your account for 7 days.
+      this.log.set(`sharedSignals.check() failed: ${describe(err)}`);
     }
   }
 }

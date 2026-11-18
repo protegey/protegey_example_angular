@@ -2,8 +2,9 @@
   <h1>Protegey — Angular example</h1>
   <p>
     Demonstrates every <code>@protegey/sdk</code> module from an Angular app via an injectable
-    service (<code>ProtegeyService</code>): device intelligence, transaction reporting, behavioral
-    biometrics, and identity verification opened in a new tab.
+    service (<code>ProtegeyService</code>): device intelligence, transaction reporting, alerts,
+    behavioral biometrics, identity verification (KYC) opened in a new tab, business onboarding
+    (KYB), sanctions screening and the shared fraud signal network.
   </p>
 
   <div style="display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap;">
@@ -11,6 +12,11 @@
     <button (click)="reportTransaction()">Report a test transaction</button>
     <button (click)="reportBehavioral()">Report a behavioral event</button>
     <button (click)="startKyc()">Verify my identity</button>
+    <button (click)="checkKyc()">Check KYC status</button>
+    <button (click)="listOpenAlerts()">List open alerts</button>
+    <button (click)="inviteBusiness()">Invite a business (KYB, by phone)</button>
+    <button (click)="screenName()">Screen a name (sanctions/PEP)</button>
+    <button (click)="checkSharedSignal()">Check shared fraud signals</button>
   </div>
 
   <pre style="background: #f4f4f4; padding: 1rem; border-radius: 4px; white-space: pre-wrap;">{{ log() }}</pre>
