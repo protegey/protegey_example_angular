@@ -2,7 +2,7 @@
   <h1>Protegey — Angular example</h1>
   <p>
     Demonstrates every <code>@protegey/sdk</code> module from an Angular app via an injectable
-    service (<code>ProtegeyService</code>): device intelligence, transaction reporting, alerts,
+    service (<code>ProtegeyService</code>): device intelligence, transaction and cash-deposit reporting, alerts,
     behavioral biometrics, identity verification (KYC) opened in a new tab, business onboarding
     (KYB), sanctions screening and the shared fraud signal network.
   </p>
@@ -13,11 +13,24 @@
     <button (click)="reportBehavioral()">Report a behavioral event</button>
     <button (click)="startKyc()">Verify my identity</button>
     <button (click)="checkKyc()">Check KYC status</button>
+    <button (click)="lookupKycByCustomer()">Find my KYC sessions</button>
+    <button (click)="recordCashDeposit()">Record a cash deposit</button>
     <button (click)="listOpenAlerts()">List open alerts</button>
     <button (click)="inviteBusiness()">Invite a business (KYB, by phone)</button>
     <button (click)="screenName()">Screen a name (sanctions/PEP)</button>
     <button (click)="checkSharedSignal()">Check shared fraud signals</button>
   </div>
+
+  @if (kycImages().length > 0) {
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      @for (item of kycImages(); track item.name) {
+        <figure style="margin: 0;">
+          <img [src]="item.image.url" [alt]="item.name" style="height: 96px; border-radius: 4px;" />
+          <figcaption style="font-size: 11px;">{{ item.name }} (expires {{ item.image.expiresAt }})</figcaption>
+        </figure>
+      }
+    </div>
+  }
 
   <pre style="background: #f4f4f4; padding: 1rem; border-radius: 4px; white-space: pre-wrap;">{{ log() }}</pre>
 </main>

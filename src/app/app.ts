@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ProtegeyApiError } from '@protegey/sdk';
+import type { KycPresignedImage } from '@protegey/sdk';
 import { ProtegeyService } from './protegey.service';
 
 function describe(err: unknown): string {
@@ -21,6 +22,8 @@ const SESSION_ID = `angular-example-session-${Date.now()}`;
 })
 export class App {
   protected readonly log = signal('Waiting for device.identify()…');
+  /** The session's photos as pre-signed links — valid 1 hour, re-issued on every getSession(). */
+  protected readonly kycImages = signal<Array<{ name: string; image: KycPresignedImage }>>([]);
   private visitorId: string | undefined;
   private kycSessionId: string | undefined;
 
@@ -56,6 +59,34 @@ export class App {
       );
     } catch (err) {
       this.log.set(`transactions.report() failed: ${(err as Error).message}`);
+    }
+  }
+
+  async recordCashDeposit(): Promise<void> {
+    try {
+      // Send your own externalTransactionId so a retry is safe — re-sending it is a 409.
+      const externalTransactionId = `angular-example-dep-${Date.now()}`;
+      const result = await this.protegey.client.cashDeposits.record({
+        externalTransactionId,
+        externalCustomerId: CUSTOMER_ID,
+        amount: 2_500_000,
+        currency: 'XAF',
+        channel: 'BRANCH',
+        branchId: 'DLA-AKWA',
+        depositorName: 'Demo Depositor',
+      });
+      // Look it up again by your own reference — amount comes back as a decimal string.
+      const deposit = await this.protegey.client.cashDeposits.get(externalTransactionId);
+      const page = await this.protegey.client.cashDeposits.list({ externalCustomerId: CUSTOMER_ID, limit: 10 });
+      this.log.set(
+        [
+          `cashDeposits.record() -> cashDepositId=${result.cashDepositId}, decision=${result.decision}, riskScore=${result.riskScore}, alerts=${result.alerts.length}`,
+          `cashDeposits.get() -> amount=${deposit.amount} ${deposit.currency}, channel=${deposit.channel}, branchId=${deposit.branchId}`,
+          `cashDeposits.list({ externalCustomerId }) -> total=${page.total}`,
+        ].join('\n'),
+      );
+    } catch (err) {
+      this.log.set(`cashDeposits failed: ${describe(err)}`);
     }
   }
 
@@ -97,9 +128,29 @@ export class App {
     try {
       // Polling fallback for the kyc.status_changed webhook.
       const session = await this.protegey.client.kyc.getSession(this.kycSessionId);
-      this.log.set(`kyc.getSession() -> status=${session.status}, outcome=${session.outcome}`);
+      // status = the final decision; recommendation = Protegey's own verdict (unchanged by a manual override).
+      this.log.set(`kyc.getSession() -> status=${session.status}, outcome=${session.outcome}, recommendation=${session.recommendation}`);
+      // Pre-signed links valid 1 hour — display/download them now, never store them.
+      this.kycImages.set(
+        Object.entries(session.images)
+          .filter((entry): entry is [string, KycPresignedImage] => entry[1] !== null)
+          .map(([name, image]) => ({ name, image })),
+      );
     } catch (err) {
       this.log.set(`kyc.getSession() failed: ${describe(err)}`);
+    }
+  }
+
+  async lookupKycByCustomer(): Promise<void> {
+    try {
+      // Exact match on your own customer id (unlike `search`, never partial).
+      const page = await this.protegey.client.kyc.listSessions({ externalUserId: CUSTOMER_ID });
+      const lines = page.data.map(
+        (row) => `  ${row.sessionId} status=${row.status} recommendation=${row.recommendation} selfie=${row.images.selfie ? 'yes' : 'no'}`,
+      );
+      this.log.set([`kyc.listSessions({ externalUserId }) -> total=${page.total}`, ...lines].join('\n'));
+    } catch (err) {
+      this.log.set(`kyc.listSessions() failed: ${describe(err)}`);
     }
   }
 

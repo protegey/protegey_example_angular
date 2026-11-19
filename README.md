@@ -1,7 +1,7 @@
 # Protegey — Angular example
 
 Minimal Angular (standalone components) app demonstrating every `@protegey/sdk` module in the
-browser via an injectable `ProtegeyService`: device intelligence, transaction reporting, alerts,
+browser via an injectable `ProtegeyService`: device intelligence, transaction and cash-deposit reporting, alerts,
 behavioral biometrics, identity verification (KYC), business onboarding (KYB), sanctions screening
 and the shared fraud signal network.
 
@@ -34,7 +34,14 @@ npm start
 - "Verify my identity": `protegey.client.kyc.startSession()`, then opens the returned hosted URL in
   a new tab — the dev decides how (`window.open` here; an iframe or redirect works just as well).
 - "Check KYC status": `protegey.client.kyc.getSession()` — the polling fallback for the
-  `kyc.status_changed` webhook.
+  `kyc.status_changed` webhook. Shows `status` (the final decision), `recommendation` (Protegey's
+  own verdict) and the photos from `images` — pre-signed URLs valid **1 hour**, re-issued on every
+  call, so they're displayed right away and never stored.
+- "Find my KYC sessions": `protegey.client.kyc.listSessions({ externalUserId })` — exact lookup by
+  your own customer id.
+- "Record a cash deposit": `protegey.client.cashDeposits.record()` with your own
+  `externalTransactionId` (a re-send is a 409), then `cashDeposits.get()` by that reference and
+  `cashDeposits.list({ externalCustomerId })`.
 - "List open alerts": `protegey.client.alerts.list({ status: "OPEN" })`.
 - "Invite a business (KYB, by phone)": `protegey.client.kyb.inviteApplicant()` with only a
   `contactPhone` — Protegey sends no email in that case, so the returned `applicationUrl` is what
@@ -46,7 +53,7 @@ npm start
 Webhook verification (`constructWebhookEvent()`) belongs on your server, never in a browser app —
 see the SDK README.
 
-> Requires `@protegey/sdk` ≥ 0.7.0. If your `package-lock.json` still pins an older commit, run
+> Requires `@protegey/sdk` ≥ 0.8.0. If your `package-lock.json` still pins an older commit, run
 > `npm update @protegey/sdk`.
 
 See `src/app/app.ts` — every call annotated.
